@@ -3,7 +3,7 @@ name = "cbct-bone"
 version = "0.2.0"
 description = "Device-specific CBCT bone segmentation with automatic model delivery"
 readme = "README.md"
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.12"
 license = { text = "MIT" }
 authors = [
     { name = "GGN_2015", email = "neko@jlulug.org" },
@@ -19,7 +19,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Medical Science Apps.",
 ]
 dependencies = [
-    "ct-mri-dicom-nii-reader==0.1.6",
+    "ct-mri-dicom-nii-reader",
     "med-image-seg==0.1.0",
     "numpy>=1.26,<3",
     "onnxruntime>=1.30,<2",

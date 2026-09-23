@@ -6,8 +6,8 @@
 
 ## Features
 
-- Python is pinned to 3.12, with [uv](https://docs.astral.sh/uv/) managing and locking the environment.
-- DICOM, NIfTI, and `.ubd.npz` reading is delegated exclusively to `ct_mri_dicom_nii_reader==0.1.6`.
+- Python 3.12 or later is supported, with [uv](https://docs.astral.sh/uv/) managing the development environment.
+- DICOM, NIfTI, and `.ubd.npz` reading is delegated exclusively to `ct_mri_dicom_nii_reader`.
 - The package depends on `med-image-seg==0.1.0` from PyPI, so machine-generated annotation JSON can enter the same bilingual GUI and Python annotation workflow. The GUI defaults to English and can switch to Chinese at runtime.
 - The default v4 ONNX model is downloaded automatically from GitHub Releases on first use; the file is approximately 4.2 MiB.
 - Model downloads support `.part` resume, retries, an interprocess lock, SHA-256 verification, and atomic installation.
@@ -19,7 +19,7 @@
 
 ## Installation
 
-The project requires Python `>=3.12,<3.13`; `.python-version` pins the repository to Python 3.12.
+The project requires Python 3.12 or later.
 
 ```powershell
 uv sync --frozen
