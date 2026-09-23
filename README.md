@@ -1,100 +1,93 @@
 # cbct-bone
 
-一个开箱即用、面向对象的 Python 包，用于从目标术中 CBCT 设备的三维影像中提取二值骨骼掩码。默认后端是由四例人工标注数据训练的 v4 2.5D U-Net；用户不需要训练模型、配置网络或手工下载权重。
+`cbct-bone` is an object-oriented, ready-to-use Python package for extracting binary bone masks from 3D images produced by the target intraoperative CBCT scanner. Its default backend is a v4 2.5D U-Net trained from four manually annotated cases. Users do not need to train a model, configure a network, or download weights manually.
 
-> 当前版本是研究工具，不是医疗器械。自动结果在诊断、手术规划或有限元分析前必须由专业人员复核。
+> This version is a research tool, not a medical device. A qualified professional must review every automatic result before it is used for diagnosis, surgical planning, or finite-element analysis.
 
-## 特点
+## Features
 
-- Python 固定为 3.12，使用 [uv](https://docs.astral.sh/uv/) 管理和锁定环境。
-- DICOM、NIfTI 和 `.ubd.npz` 的读取全部委托给 `ct_mri_dicom_nii_reader==0.1.6`。
-- 依赖 PyPI 上的 `med-image-seg==0.1.0`，机器分割 JSON 可直接进入同一套 GUI 和 Python 标注工作流。
-- 默认使用 v4 ONNX 模型；首次调用自动从 GitHub Release 下载约 4.2 MiB 权重。
-- 下载支持 `.part` 断点续传、重试、并发锁、SHA-256 校验和原子落盘。
-- CPU 推理依赖 ONNX Runtime，不要求安装 PyTorch；可通过 provider 参数使用其他 ONNX Runtime 执行后端。
-- 保留无需权重的 3D 自适应阈值算法作为显式后备后端。
-- 输入统一到各向同性 LPS 网格，输出 NIfTI 或 `.ubd.npz` 二值掩码。
-- `MedicalVolumeReader`、`V4CBCTBoneSegmenter`、`ModelManager`、
-  `MedicalMaskWriter`、`MachineAnnotationWriter` 和 `CBCTBoneExtractor`
-  可独立复用或替换。
-- 标注 GUI 已拆分到独立的 `med-image-seg` 项目，分割包不再引入 GUI 或训练依赖。
+- Python is pinned to 3.12, with [uv](https://docs.astral.sh/uv/) managing and locking the environment.
+- DICOM, NIfTI, and `.ubd.npz` reading is delegated exclusively to `ct_mri_dicom_nii_reader==0.1.6`.
+- The package depends on `med-image-seg==0.1.0` from PyPI, so machine-generated annotation JSON can enter the same bilingual GUI and Python annotation workflow. The GUI defaults to English and can switch to Chinese at runtime.
+- The default v4 ONNX model is downloaded automatically from GitHub Releases on first use; the file is approximately 4.2 MiB.
+- Model downloads support `.part` resume, retries, an interprocess lock, SHA-256 verification, and atomic installation.
+- CPU inference uses ONNX Runtime and does not require PyTorch. Other ONNX Runtime execution backends can be selected with the provider option.
+- A weight-free 3D adaptive-threshold method remains available as an explicit fallback backend.
+- Inputs are normalized to an isotropic LPS grid, and binary masks can be written as NIfTI or `.ubd.npz`.
+- `MedicalVolumeReader`, `V4CBCTBoneSegmenter`, `ModelManager`, `MedicalMaskWriter`, `MachineAnnotationWriter`, and `CBCTBoneExtractor` can be reused or replaced independently.
+- The annotation GUI lives in the separate `med-image-seg` project, so this segmentation package does not carry GUI implementation or training dependencies.
 
-## 安装
+## Installation
 
-项目要求 Python `>=3.12,<3.13`，仓库中的 `.python-version` 已固定到 3.12。
+The project requires Python `>=3.12,<3.13`; `.python-version` pins the repository to Python 3.12.
 
 ```powershell
 uv sync --frozen
 ```
 
-作为依赖安装：
+Install it as a dependency:
 
 ```powershell
 uv add cbct-bone
 ```
 
-在发布到 PyPI 前，可以从 Git 仓库安装：
+Before a PyPI release is available, install directly from GitHub:
 
 ```powershell
 uv add "cbct-bone @ git+https://github.com/GGN-2015/cbct-bone.git"
 ```
 
-## 命令行
+## Command line
 
-最简单的调用：
+The smallest invocation is:
 
 ```powershell
 uv run cbct-bone path\to\dicom path\to\bone_mask.nii.gz
 ```
 
-第一次调用会自动下载并校验 v4 权重，后续直接使用本地缓存。v4 模型固定使用 `0.8 mm` 各向同性输入；CLI 默认值已经与之匹配。
+The first call downloads and verifies the v4 weights. Later calls use the local cache. The v4 model requires `0.8 mm` isotropic input, which matches the CLI default.
 
-也可以输入单个 DICOM 文件、`.nii`、`.nii.gz` 或 `.ubd.npz`：
+A single DICOM file, `.nii`, `.nii.gz`, or `.ubd.npz` file is also accepted:
 
 ```powershell
 uv run cbct-bone scan.nii.gz bone_mask.nii.gz --spacing 0.8
 ```
 
-输出 JSON 诊断信息：
+Print diagnostics as JSON:
 
 ```powershell
 uv run cbct-bone scan.nii.gz bone_mask.nii.gz --json
 ```
 
-同时输出可由 `med-image-seg` 继续修改的逐层多边形 JSON：
+Also write per-slice polygon JSON that can be edited by `med-image-seg`:
 
 ```powershell
 uv run cbct-bone scan.nii.gz bone_mask.nii.gz --annotation-json
 ```
 
-省略 `--annotation-json` 的路径时，NIfTI/UBD 使用
-`scan.med-image-seg.json`，DICOM 使用序列目录内的 `.med-image-seg.json`；
-也可以显式指定路径：
+When `--annotation-json` has no explicit path, NIfTI and UBD inputs use `scan.med-image-seg.json`, while DICOM uses `.med-image-seg.json` in the series directory. A destination can be supplied explicitly:
 
 ```powershell
 uv run cbct-bone scan.nii.gz bone_mask.nii.gz `
   --annotation-json D:\review\scan.med-image-seg.json
 ```
 
-机器轮廓在 JSON 中标记为 `prototype`。如果目标 JSON 已存在，程序会替换
-旧机器轮廓并保留 `manual` 人工轮廓、复核状态和强制空层；同层机器与人工
-结果在 `med-image-seg` 中按并集处理。每个机器推理层（包括空层）都会写为
-关键层，因而检查完整模型结果时不会额外产生插值。
+Machine contours are marked as `prototype` in the JSON. If the target file already exists, the writer replaces old machine contours while preserving `manual` contours, review state, and forced-empty slices. Machine and manual results on the same slice are combined by union in `med-image-seg`. Every inferred slice, including an empty slice, is stored as a keyframe, so reviewing a complete model result does not introduce additional interpolation.
 
-生成后可在独立标注工具中直接检查和修正：
+Open the generated annotations directly in the standalone review tool:
 
 ```powershell
 cd C:\Users\neko\Desktop\github\med-image-seg
 uv run med-image-seg --image "D:\images\scan.nii.gz"
 ```
 
-没有网络时可要求只使用已经校验的缓存：
+Use only an already verified cached model when no network is available:
 
 ```powershell
 uv run cbct-bone scan.nii.gz bone_mask.nii.gz --offline
 ```
 
-也可以指定本地模型、缓存目录或 ONNX Runtime provider：
+Select a local model, cache directory, or ONNX Runtime provider:
 
 ```powershell
 uv run cbct-bone scan.nii.gz bone_mask.nii.gz `
@@ -102,16 +95,16 @@ uv run cbct-bone scan.nii.gz bone_mask.nii.gz `
   --provider CPUExecutionProvider
 ```
 
-无需权重的旧自适应算法仍可显式调用，并允许改变处理分辨率：
+The weight-free adaptive backend can be selected explicitly and permits a different processing resolution:
 
 ```powershell
 uv run cbct-bone scan.nii.gz bone_mask.nii.gz `
   --backend adaptive --spacing 1.0
 ```
 
-默认模型缓存在 Windows 的 `%LOCALAPPDATA%\cbct-bone\models`，Linux/macOS 使用标准用户缓存目录。设置 `CBCT_BONE_CACHE_DIR` 或传入 `--cache-dir` 可以覆盖该位置。发布模型的大小和 SHA-256 固定在代码注册表中，校验失败的文件不会进入有效缓存。
+On Windows, the default model cache is `%LOCALAPPDATA%\cbct-bone\models`; Linux and macOS use their standard user cache directories. Set `CBCT_BONE_CACHE_DIR` or pass `--cache-dir` to override it. The registered model size and SHA-256 are fixed in code, and an invalid file never enters the valid cache.
 
-模型下载每次请求都会读取标准代理环境变量 `HTTP_PROXY`、`HTTPS_PROXY` 和 `NO_PROXY`，同时兼容对应的小写变量。例如：
+Every model request reads the standard `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` environment variables, including their lowercase equivalents. For example:
 
 ```powershell
 $env:HTTP_PROXY = "http://127.0.0.1:10808"
@@ -119,23 +112,21 @@ $env:HTTPS_PROXY = "http://127.0.0.1:10808"
 uv run cbct-bone scan.nii.gz bone_mask.nii.gz
 ```
 
-代理配置由 Python 标准库按当前操作系统规则解析；代码不会把代理地址、账号或密码写入模型缓存。
+Python's standard library resolves proxy behavior according to the operating system. Proxy addresses and credentials are never written to the model cache.
 
-查看所有参数：
+List all options:
 
 ```powershell
 uv run cbct-bone --help
 ```
 
-## 标注工具
+## Annotation tool
 
-多边形标注、自动插值、实时 JSON 保存与 GUI 已迁移到独立的
-`med-image-seg` 项目，并作为 `cbct-bone` 的正式运行时依赖安装。
-`cbct-bone` 本身仍不包含 PyTorch 或原型训练依赖。
+Polygon annotation, automatic interpolation, immediate JSON persistence, and the GUI have moved to the independent [`med-image-seg`](https://github.com/GGN-2015/med-image-seg) project, which is installed as a runtime dependency of `cbct-bone`. `cbct-bone` itself still has no PyTorch or prototype-training dependency.
 
 ## Python API
 
-最简单的 API 会自动读取影像、获取 v4 权重、执行推理并写出掩码：
+The simplest API reads an image, obtains the v4 weights, runs inference, and writes the mask:
 
 ```python
 from cbct_bone import segment
@@ -150,7 +141,7 @@ print(result.diagnostics)
 print(result.annotation_path)
 ```
 
-推荐使用可组合的类接口：
+For composition and dependency injection, use the class interface:
 
 ```python
 from cbct_bone import (
@@ -184,7 +175,7 @@ print(result.mask.shape)
 print(result.diagnostics)
 ```
 
-可以提前准备权重，以便后续完全离线运行：
+Prepare the weights in advance for fully offline inference:
 
 ```python
 from cbct_bone import ModelManager
@@ -193,7 +184,7 @@ model_path = ModelManager().get()
 print(model_path)
 ```
 
-已有 NumPy LPS 体数据时，可以单独复用模型类：
+Reuse only the model class when a NumPy LPS volume is already available:
 
 ```python
 from cbct_bone import V4CBCTBoneSegmenter
@@ -204,60 +195,60 @@ mask, diagnostics = V4CBCTBoneSegmenter().segment(
 )
 ```
 
-`CBCTBoneExtractor` 采用依赖注入。自定义实现只需提供与 `VolumeReader`、`BoneMaskSegmenter` 或 `MaskWriter` 协议一致的方法，便可替换某个阶段。
+`CBCTBoneExtractor` uses dependency injection. A custom component only needs methods compatible with the `VolumeReader`, `BoneMaskSegmenter`, or `MaskWriter` protocol to replace that stage.
 
-## 算法选择
+## Algorithm selection
 
-默认 v4 是面向当前目标术中 CBCT 设备的 2.5D U-Net。它逐层使用当前层及上下相邻层，在每个体数据内做稳健灰度归一化，并使用训练预标注阶段相同的阈值与二维连通域后处理。当前训练集只有四个病例、208 张人工切片，因此它应被视为减少标注工作量的设备原型，不应据此宣称跨设备或全身泛化能力。完整限制见 [MODEL_CARD.md](MODEL_CARD.md)。
+The default v4 model is a 2.5D U-Net tuned for the current target intraoperative CBCT scanner. It uses the current axial slice and its two neighbors, applies robust intensity normalization within each volume, and uses the same threshold and 2D connected-component postprocessing as the training pre-annotation workflow. The training set contains only four cases and 208 manually annotated slices. The model must therefore be treated as a scanner-specific annotation aid, not evidence of cross-scanner or whole-body generalization. See [MODEL_CARD.md](MODEL_CARD.md) for the full limitations.
 
-`adaptive` 后端保留了无解剖先验的 3D 自适应方法：
+The `adaptive` backend retains a 3D method without anatomical priors:
 
-1. 通过三类 multi-Otsu 直方图自动估计弱骨与强骨阈值。
-2. 在毫米尺度的 3D 邻域中计算局部均值和方差，抑制仅在全局灰度上类似骨的软组织和伪影。
-3. 从强骨种子出发，在弱骨候选内进行 3D 滞后区域生长，恢复部分容积效应造成的低密度边界。
-4. 使用物理尺度闭合、封闭腔填充和最小连通域过滤得到最终二值掩码。
+1. Three-class multi-Otsu histogram analysis estimates weak-bone and strong-bone thresholds.
+2. Local mean and variance in a millimeter-scale 3D neighborhood suppress soft tissue and artifacts that only resemble bone in global intensity.
+3. 3D hysteresis region growing expands from strong-bone seeds through weak-bone candidates to recover low-density boundaries affected by partial volume.
+4. Physical-scale closing, enclosed-cavity filling, and minimum-component filtering produce the final binary mask.
 
-这个后备设计来自 Zhang 等人的“初始分类 + 3D 相关迭代 + 区域生长”自适应骨分割思路，并结合现代 multi-Otsu 与三维形态学实现。它无需训练数据和权重，但不具备深度模型的解剖语义。
+This fallback follows the adaptive bone-segmentation approach of Zhang et al., combining initial classification, 3D correlation iteration, and region growing with modern multi-Otsu thresholding and 3D morphology. It requires neither training data nor model weights, but it has no learned anatomical semantics.
 
-如果设备灰度分布特殊，可以显式覆盖自动阈值：
+For scanners with unusual intensity distributions, thresholds can be overridden explicitly:
 
 ```powershell
 uv run cbct-bone scan.nii.gz mask.nii.gz --backend adaptive `
   --weak-threshold 180 --strong-threshold 450
 ```
 
-弱阈值必须小于强阈值。建议先查看 `--json` 输出的自动阈值，再基于少量已审核病例确定设备级参数。
+The weak threshold must be lower than the strong threshold. Inspect the automatically selected values with `--json`, then establish scanner-level settings from a small reviewed dataset.
 
-## 读取与坐标约定
+## I/O and coordinate conventions
 
-- 读取路径只调用 `ct_mri_dicom_nii_reader` 的公开加载函数；本项目没有第二套医疗影像读取实现。
-- 输入在处理前重采样为各向同性 `(L, P, S)` 数组。
-- NIfTI 写出使用 SimpleITK，但仅用于写入，不用于读取。
-- 输出 NIfTI 保留重采样后网格的 spacing 和 LPS origin，direction 为单位矩阵。
-- `.ubd.npz` 格式不保存物理 origin，适合包内快速交换，不适合依赖患者坐标的跨软件工作流。
+- Input paths are read only through the public loader in `ct_mri_dicom_nii_reader`; this project contains no second medical-image reader.
+- Inputs are resampled to an isotropic `(L, P, S)` array before processing.
+- SimpleITK is used to write NIfTI, but never to read source images.
+- NIfTI output retains the resampled grid spacing and LPS origin, with an identity direction matrix.
+- `.ubd.npz` does not preserve a physical origin. It is useful for fast internal exchange, but not for cross-application workflows that depend on patient coordinates.
 
-## 验证状态
+## Validation status
 
-v4 使用四例目标设备 CBCT 中的 208 张人工切片训练；其中 165 张用于训练、43 张空间留出切片用于内部验证。内部 Dice 为 `0.8678`、Precision 为 `0.8493`、Recall 为 `0.8872`。相邻切片来自相同病例，因此这些数字不是独立患者测试，也不能估计真实临床泛化性能。
+The v4 model was trained from 208 manually annotated slices in four CBCT studies acquired on the target scanner. Of those slices, 165 were used for training and 43 spatially held-out slices for internal validation. Internal Dice was `0.8678`, precision was `0.8493`, and recall was `0.8872`. Adjacent slices still come from the same patients, so these values are not an independent patient-level test and do not estimate real clinical generalization.
 
-自动测试覆盖模型缓存、断点续传、SHA-256 失败、离线模式、ONNX 轴向还原、间距约束、NIfTI 几何往返、CLI 和面向对象依赖注入。ONNX 导出与原始 PyTorch v4 的数值对照最大绝对误差为 `1.58e-5`。合成测试用于防止算法和几何回归，不等同于临床验证。
+Automated tests cover model caching, resumed downloads, SHA-256 failure, offline mode, ONNX axis restoration, spacing constraints, NIfTI geometry round trips, CLI behavior, and object-oriented dependency injection. Numerical comparison between the ONNX export and the original PyTorch v4 model found a maximum absolute error of `1.58e-5`. Synthetic tests prevent algorithm and geometry regressions; they are not clinical validation.
 
-在真实设备上投入使用前，至少应按设备、部位、剂量协议和金属植入物情况建立带人工金标准的测试集，并报告 Dice、表面 Dice、HD95、灵敏度和假阳性体积。
+Before use on real scanners, build a manually labeled test set stratified by scanner, anatomy, dose protocol, and metal implants. Report Dice, surface Dice, HD95, sensitivity, and false-positive volume.
 
-开源 SynthRAD2023 骨盆 CBCT 的多中心测试已证明纯阈值方案存在明显的设备域偏移。v4 同样尚未在独立病例、其他设备、膝关节或全身各部位上完成验证。当前自动算法不应视为临床充分验证；后续需要按患者隔离独立测试集，并报告 Dice、表面 Dice、HD95、灵敏度和假阳性体积。
+Multicenter testing on open SynthRAD2023 pelvic CBCT data showed a substantial scanner-domain shift for the pure-threshold method. The v4 model has likewise not been validated on independent patients, other scanners, knees, or whole-body anatomy. The current automatic algorithm is not clinically validated; future evaluation requires a patient-separated independent test set and the same volumetric and surface metrics.
 
-## 模型发布
+## Model release
 
-- Release：`model-v4.0.0`
-- 文件：`cbct-bone-intraoperative-v4.onnx`
-- 大小：`4,428,600` 字节
-- SHA-256：`f18ed7c9071b35c613ff748088bfadbd5bd7691793c1c8b80bf9013315c7abc6`
-- 训练网格：`0.8 mm` 各向同性 LPS
-- 分割阈值：`0.775`
+- Release: `model-v4.0.0`
+- File: `cbct-bone-intraoperative-v4.onnx`
+- Size: `4,428,600` bytes
+- SHA-256: `f18ed7c9071b35c613ff748088bfadbd5bd7691793c1c8b80bf9013315c7abc6`
+- Training grid: `0.8 mm` isotropic LPS
+- Segmentation threshold: `0.775`
 
-运行时只会接受与注册大小和 SHA-256 同时匹配的模型文件。
+The runtime accepts a model file only when both its registered size and SHA-256 match.
 
-运行质量检查：
+Run the quality checks:
 
 ```powershell
 uv run ruff check .
@@ -266,13 +257,13 @@ uv run pytest --cov=cbct_bone
 uv build
 ```
 
-## 文献依据
+## References
 
 - Zhang J, Yan C-H, Chui C-K, Ong S-H. [Fast segmentation of bone in CT images using 3D adaptive thresholding](https://doi.org/10.1016/j.compbiomed.2009.11.020). Computers in Biology and Medicine. 2010;40(2):231-236.
 - van Eijnatten M, et al. [CT image segmentation methods for bone used in medical additive manufacturing](https://doi.org/10.1016/j.medengphy.2017.10.008). Medical Engineering & Physics. 2018;51:6-16.
 - Isensee F, et al. [nnU-Net: a self-configuring method for deep learning-based biomedical image segmentation](https://doi.org/10.1038/s41592-020-01008-z). Nature Methods. 2021;18:203-211.
 - Dot G, et al. [DentalSegmentator: robust open source deep learning-based CT and CBCT image segmentation](https://doi.org/10.1016/j.jdent.2024.105130). Journal of Dentistry. 2024;147:105130.
 
-## 许可证
+## License
 
 [MIT](LICENSE)
