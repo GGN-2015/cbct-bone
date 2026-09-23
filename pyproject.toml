@@ -1,0 +1,87 @@
+[project]
+name = "cbct-bone"
+version = "0.2.0"
+description = "Device-specific CBCT bone segmentation with automatic model delivery"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "MIT" }
+authors = [
+    { name = "GGN_2015", email = "neko@jlulug.org" },
+]
+keywords = ["CBCT", "CT", "bone", "segmentation", "medical-imaging"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Healthcare Industry",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+dependencies = [
+    "ct-mri-dicom-nii-reader==0.1.6",
+    "numpy>=1.26,<3",
+    "onnxruntime>=1.30,<2",
+    "scipy>=1.13,<2",
+    "scikit-image>=0.24,<1",
+]
+
+[project.urls]
+Homepage = "https://github.com/GGN-2015/cbct-bone"
+Repository = "https://github.com/GGN-2015/cbct-bone"
+Issues = "https://github.com/GGN-2015/cbct-bone/issues"
+
+[project.scripts]
+cbct-bone = "cbct_bone.cli:main"
+
+[dependency-groups]
+dev = [
+    "build>=1.2",
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "ruff>=0.11",
+]
+validation = [
+    "matplotlib>=3.9",
+    "remotezip>=0.12",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["cbct_bone"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/cbct_bone",
+    "/tests",
+    "/validation",
+    "/.github/workflows/ci.yml",
+    "/.python-version",
+    "/LICENSE",
+    "/MODEL_CARD.md",
+    "/README.md",
+    "/pyproject.toml",
+    "/uv.lock",
+]
+
+[tool.pytest.ini_options]
+addopts = "--strict-config --strict-markers -ra"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["cbct_bone"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
