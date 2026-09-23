@@ -1,4 +1,4 @@
-"""ONNX inference for the device-specific v4 CBCT bone model."""
+"""ONNX inference for versioned device-specific CBCT bone models."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ import numpy as np
 from scipy.ndimage import binary_closing, label
 from skimage.morphology import disk
 
-from .models import V4_MODEL, ModelManager, ProgressCallback
+from .models import V4_MODEL, V5_MODEL, ModelManager, ModelSpec, ProgressCallback
 
 
 class InferenceSession(Protocol):
@@ -36,11 +36,11 @@ SessionFactory = Callable[[Path, tuple[str, ...] | None], InferenceSession]
 
 @dataclass(frozen=True, slots=True)
 class NeuralSegmentationConfig:
-    """Runtime and mask-cleanup settings for v4 inference."""
+    """Runtime and mask-cleanup settings for neural inference."""
 
     batch_size: int = 8
-    threshold: float = V4_MODEL.threshold
-    expected_spacing_mm: float = V4_MODEL.spacing_mm
+    threshold: float = V5_MODEL.threshold
+    expected_spacing_mm: float = V5_MODEL.spacing_mm
     spacing_tolerance_mm: float = 1e-3
     minimum_component_pixels: int = 80
     maximum_hole_pixels: int = 64
@@ -65,7 +65,7 @@ class NeuralSegmentationConfig:
 
 @dataclass(frozen=True, slots=True)
 class NeuralSegmentationDiagnostics:
-    """Provenance and runtime details for one v4 segmentation."""
+    """Provenance and runtime details for one neural segmentation."""
 
     model_name: str
     model_version: str
@@ -77,7 +77,7 @@ class NeuralSegmentationDiagnostics:
 
 
 class NeuralMaskPostprocessor:
-    """Apply the same conservative 2-D cleanup used for v4 preannotations."""
+    """Apply the conservative 2-D cleanup used for preannotations."""
 
     def __init__(self, config: NeuralSegmentationConfig) -> None:
         self.config = config
@@ -112,7 +112,7 @@ def _create_onnx_session(
         import onnxruntime as ort
     except ImportError as exc:
         raise RuntimeError(
-            "ONNX Runtime is required for v4 inference. Run `uv sync`."
+            "ONNX Runtime is required for neural inference. Run `uv sync`."
         ) from exc
     options = ort.SessionOptions()
     options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
@@ -122,12 +122,14 @@ def _create_onnx_session(
     return ort.InferenceSession(str(path), **arguments)
 
 
-class V4CBCTBoneSegmenter:
-    """Segment a canonical LPS CBCT volume with the published v4 model.
+class NeuralCBCTBoneSegmenter:
+    """Segment a canonical LPS CBCT volume with a published ONNX model.
 
     The model consumes three adjacent axial slices and was trained at 0.8 mm
     isotropic spacing. A session and model are loaded lazily on first use.
     """
+
+    model_spec: ModelSpec = V5_MODEL
 
     def __init__(
         self,
@@ -143,8 +145,14 @@ class V4CBCTBoneSegmenter:
     ) -> None:
         if model_path is not None and model_manager is not None:
             raise ValueError("model_path and model_manager are mutually exclusive")
-        self.config = config or NeuralSegmentationConfig()
-        self.model_manager = model_manager or ModelManager()
+        self.model_spec = (
+            model_manager.spec if model_manager is not None else type(self).model_spec
+        )
+        self.config = config or NeuralSegmentationConfig(
+            threshold=self.model_spec.threshold,
+            expected_spacing_mm=self.model_spec.spacing_mm,
+        )
+        self.model_manager = model_manager or ModelManager(self.model_spec)
         self._model_path = (
             Path(model_path).expanduser().resolve() if model_path is not None else None
         )
@@ -184,7 +192,9 @@ class V4CBCTBoneSegmenter:
             inputs = self._session.get_inputs()
             outputs = self._session.get_outputs()
             if len(inputs) != 1 or len(outputs) != 1:
-                raise RuntimeError("v4 model must have exactly one input and output")
+                raise RuntimeError(
+                    "neural model must have exactly one input and output"
+                )
             self._input_name = str(inputs[0].name)
             self._output_name = str(outputs[0].name)
         return self._session
@@ -256,7 +266,8 @@ class V4CBCTBoneSegmenter:
             atol=self.config.spacing_tolerance_mm,
         ):
             raise ValueError(
-                f"v4 expects {self.config.expected_spacing_mm:g} mm isotropic input; "
+                f"{self.model_spec.name} expects "
+                f"{self.config.expected_spacing_mm:g} mm isotropic input; "
                 f"got {spacing}"
             )
         return spacing
@@ -264,7 +275,7 @@ class V4CBCTBoneSegmenter:
     def segment(
         self,
         volume: np.ndarray,
-        spacing_mm: float | tuple[float, float, float] = V4_MODEL.spacing_mm,
+        spacing_mm: float | tuple[float, float, float] = V5_MODEL.spacing_mm,
     ) -> tuple[np.ndarray, NeuralSegmentationDiagnostics]:
         """Return a full-resolution binary mask for a canonical LPS volume."""
 
@@ -293,7 +304,7 @@ class V4CBCTBoneSegmenter:
             expected = (len(indices), 1, inputs.shape[2], inputs.shape[3])
             if probabilities.shape != expected:
                 raise RuntimeError(
-                    f"v4 model returned shape {probabilities.shape}, "
+                    f"neural model returned shape {probabilities.shape}, "
                     f"expected {expected}"
                 )
             for row, index in enumerate(indices):
@@ -302,8 +313,8 @@ class V4CBCTBoneSegmenter:
         elapsed = time.perf_counter() - started
         providers = tuple(session.get_providers())
         diagnostics = NeuralSegmentationDiagnostics(
-            model_name=V4_MODEL.name,
-            model_version=V4_MODEL.version,
+            model_name=self.model_spec.name,
+            model_version=self.model_spec.version,
             threshold=self.config.threshold,
             provider=providers[0] if providers else "unknown",
             bone_voxels=int(output.sum()),
@@ -313,10 +324,24 @@ class V4CBCTBoneSegmenter:
         return output, diagnostics
 
 
+class V5CBCTBoneSegmenter(NeuralCBCTBoneSegmenter):
+    """Use the five-case v5 model, including dense interpolated training labels."""
+
+    model_spec = V5_MODEL
+
+
+class V4CBCTBoneSegmenter(NeuralCBCTBoneSegmenter):
+    """Use the previous four-case v4 model for reproducibility."""
+
+    model_spec = V4_MODEL
+
+
 __all__ = [
     "InferenceSession",
+    "NeuralCBCTBoneSegmenter",
     "NeuralMaskPostprocessor",
     "NeuralSegmentationConfig",
     "NeuralSegmentationDiagnostics",
     "V4CBCTBoneSegmenter",
+    "V5CBCTBoneSegmenter",
 ]

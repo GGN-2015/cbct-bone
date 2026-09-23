@@ -34,7 +34,7 @@ def test_cli_prints_json_diagnostics(tmp_path: Path, capsys) -> None:
     assert status == 0
     assert '"bone_voxels": 8' in capsys.readouterr().out
     assert mocked.call_args.kwargs["spacing_mm"] == 0.8
-    assert mocked.call_args.kwargs["backend"] == "v4"
+    assert mocked.call_args.kwargs["backend"] == "v5"
     assert mocked.call_args.kwargs["neural_config"].batch_size == 8
 
 
@@ -57,6 +57,22 @@ def test_cli_selects_adaptive_backend(tmp_path: Path) -> None:
     assert mocked.call_args.kwargs["backend"] == "adaptive"
     assert mocked.call_args.kwargs["config"].weak_threshold == 100.0
     assert mocked.call_args.kwargs["neural_config"] is None
+
+
+def test_cli_v4_backend_uses_registered_v4_threshold(tmp_path: Path) -> None:
+    with patch("cbct_bone.cli.segment", return_value=_result(tmp_path)) as mocked:
+        status = main(
+            [
+                "input",
+                str(tmp_path / "mask.nii.gz"),
+                "--backend",
+                "v4",
+            ]
+        )
+
+    assert status == 0
+    assert mocked.call_args.kwargs["backend"] == "v4"
+    assert mocked.call_args.kwargs["neural_config"].threshold == 0.775
 
 
 def test_cli_passes_explicit_annotation_json(tmp_path: Path) -> None:

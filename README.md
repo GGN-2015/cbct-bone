@@ -1,6 +1,6 @@
 # cbct-bone
 
-`cbct-bone` is an object-oriented, ready-to-use Python package for extracting binary bone masks from 3D images produced by the target intraoperative CBCT scanner. Its default backend is a v4 2.5D U-Net trained from four manually annotated cases. Users do not need to train a model, configure a network, or download weights manually.
+`cbct-bone` is an object-oriented, ready-to-use Python package for extracting binary bone masks from 3D images produced by the target intraoperative CBCT scanner. Its default backend is a v5 2.5D U-Net trained from five reviewed cases, including the interpolated slices between annotation keyframes. Users do not need to train a model, configure a network, or download weights manually.
 
 > This version is a research tool, not a medical device. A qualified professional must review every automatic result before it is used for diagnosis, surgical planning, or finite-element analysis.
 
@@ -9,12 +9,12 @@
 - Python 3.12 or later is supported, with [uv](https://docs.astral.sh/uv/) managing the development environment.
 - DICOM, NIfTI, and `.ubd.npz` reading is delegated exclusively to `ct_mri_dicom_nii_reader`.
 - The package depends on `med-image-seg==0.1.1` from PyPI, so machine-generated annotation JSON can enter the same bilingual GUI and Python annotation workflow. The GUI defaults to English and can switch to Chinese at runtime.
-- The default v4 ONNX model is downloaded automatically from GitHub Releases on first use; the file is approximately 4.2 MiB.
+- The default v5 ONNX model is downloaded automatically from GitHub Releases on first use; the file is approximately 4.2 MiB.
 - Model downloads support `.part` resume, retries, an interprocess lock, SHA-256 verification, and atomic installation.
 - CPU inference uses ONNX Runtime and does not require PyTorch. Other ONNX Runtime execution backends can be selected with the provider option.
 - A weight-free 3D adaptive-threshold method remains available as an explicit fallback backend.
 - Inputs are normalized to an isotropic LPS grid, and binary masks can be written as NIfTI or `.ubd.npz`.
-- `MedicalVolumeReader`, `V4CBCTBoneSegmenter`, `ModelManager`, `MedicalMaskWriter`, `MachineAnnotationWriter`, and `CBCTBoneExtractor` can be reused or replaced independently.
+- `MedicalVolumeReader`, `V5CBCTBoneSegmenter`, `ModelManager`, `MedicalMaskWriter`, `MachineAnnotationWriter`, and `CBCTBoneExtractor` can be reused or replaced independently.
 - The annotation GUI lives in the separate `med-image-seg` project, so this segmentation package does not carry GUI implementation or training dependencies.
 
 ## Installation
@@ -45,7 +45,7 @@ The smallest invocation is:
 uv run cbct-bone path\to\dicom path\to\bone_mask.nii.gz
 ```
 
-The first call downloads and verifies the v4 weights. Later calls use the local cache. The v4 model requires `0.8 mm` isotropic input, which matches the CLI default.
+The first call downloads and verifies the v5 weights. Later calls use the local cache. The neural models require `0.8 mm` isotropic input, which matches the CLI default.
 
 A single DICOM file, `.nii`, `.nii.gz`, or `.ubd.npz` file is also accepted:
 
@@ -91,7 +91,7 @@ Select a local model, cache directory, or ONNX Runtime provider:
 
 ```powershell
 uv run cbct-bone scan.nii.gz bone_mask.nii.gz `
-  --model D:\models\cbct-bone-intraoperative-v4.onnx `
+  --model D:\models\cbct-bone-intraoperative-v5.onnx `
   --provider CPUExecutionProvider
 ```
 
@@ -101,6 +101,8 @@ The weight-free adaptive backend can be selected explicitly and permits a differ
 uv run cbct-bone scan.nii.gz bone_mask.nii.gz `
   --backend adaptive --spacing 1.0
 ```
+
+The previous published model remains reproducible with `--backend v4`.
 
 On Windows, the default model cache is `%LOCALAPPDATA%\cbct-bone\models`; Linux and macOS use their standard user cache directories. Set `CBCT_BONE_CACHE_DIR` or pass `--cache-dir` to override it. The registered model size and SHA-256 are fixed in code, and an invalid file never enters the valid cache.
 
@@ -126,7 +128,7 @@ Polygon annotation, automatic interpolation, immediate JSON persistence, and the
 
 ## Python API
 
-The simplest API reads an image, obtains the v4 weights, runs inference, and writes the mask:
+The simplest API reads an image, obtains the v5 weights, runs inference, and writes the mask:
 
 ```python
 from cbct_bone import segment
@@ -150,12 +152,12 @@ from cbct_bone import (
     MedicalVolumeReader,
     ModelManager,
     NeuralSegmentationConfig,
-    V4CBCTBoneSegmenter,
+    V5CBCTBoneSegmenter,
 )
 
 reader = MedicalVolumeReader(spacing_mm=0.8)
 models = ModelManager()  # download + resume + SHA-256 verification
-algorithm = V4CBCTBoneSegmenter(
+algorithm = V5CBCTBoneSegmenter(
     NeuralSegmentationConfig(batch_size=8),
     model_manager=models,
     offline=False,
@@ -187,9 +189,9 @@ print(model_path)
 Reuse only the model class when a NumPy LPS volume is already available:
 
 ```python
-from cbct_bone import V4CBCTBoneSegmenter
+from cbct_bone import V5CBCTBoneSegmenter
 
-mask, diagnostics = V4CBCTBoneSegmenter().segment(
+mask, diagnostics = V5CBCTBoneSegmenter().segment(
     volume,
     spacing_mm=(0.8, 0.8, 0.8),
 )
@@ -199,7 +201,7 @@ mask, diagnostics = V4CBCTBoneSegmenter().segment(
 
 ## Algorithm selection
 
-The default v4 model is a 2.5D U-Net tuned for the current target intraoperative CBCT scanner. It uses the current axial slice and its two neighbors, applies robust intensity normalization within each volume, and uses the same threshold and 2D connected-component postprocessing as the training pre-annotation workflow. The training set contains only four cases and 208 manually annotated slices. The model must therefore be treated as a scanner-specific annotation aid, not evidence of cross-scanner or whole-body generalization. See [MODEL_CARD.md](MODEL_CARD.md) for the full limitations.
+The default v5 model is a compact 2.5D U-Net tuned for the current target intraoperative CBCT scanner. It uses the current axial slice and its two neighbors, applies robust intensity normalization within each volume, and uses the same threshold and 2D connected-component postprocessing as the annotation workflow. Five reviewed studies contributed 1,206 axial training slices after signed-distance interpolation between annotation keyframes. The model must therefore be treated as a scanner-specific annotation aid, not evidence of cross-scanner or whole-body generalization. See [MODEL_CARD.md](MODEL_CARD.md) for the full limitations.
 
 The `adaptive` backend retains a 3D method without anatomical priors:
 
@@ -229,22 +231,22 @@ The weak threshold must be lower than the strong threshold. Inspect the automati
 
 ## Validation status
 
-The v4 model was trained from 208 manually annotated slices in four CBCT studies acquired on the target scanner. Of those slices, 165 were used for training and 43 spatially held-out slices for internal validation. Internal Dice was `0.8678`, precision was `0.8493`, and recall was `0.8872`. Adjacent slices still come from the same patients, so these values are not an independent patient-level test and do not estimate real clinical generalization.
+The v5 model-selection run used 965 slices for fitting and 241 slices in contiguous, spatially distributed validation blocks across five target-scanner studies. Internal Dice was `0.8733`, precision was `0.8735`, and recall was `0.8731`. The release model was then retrained for the selected 58 epochs on all 1,206 keyframe and interpolated slices. These blocks still come from the same patients, and most labels are interpolation-derived, so the values are development metrics rather than an independent patient-level estimate of clinical generalization.
 
-Automated tests cover model caching, resumed downloads, SHA-256 failure, offline mode, ONNX axis restoration, spacing constraints, NIfTI geometry round trips, CLI behavior, and object-oriented dependency injection. Numerical comparison between the ONNX export and the original PyTorch v4 model found a maximum absolute error of `1.58e-5`. Synthetic tests prevent algorithm and geometry regressions; they are not clinical validation.
+Automated tests cover model caching, resumed downloads, SHA-256 failure, offline mode, ONNX axis restoration, spacing constraints, NIfTI geometry round trips, CLI behavior, and object-oriented dependency injection. Numerical comparison between the ONNX export and the original PyTorch v5 model found a maximum absolute error of `1.49e-5`. A same-case full-volume sanity check against the fifth reviewed project measured Dice `0.9280`, precision `0.8967`, and recall `0.9616`; because that case contributed to training, this is not a generalization result. Synthetic tests prevent algorithm and geometry regressions; they are not clinical validation.
 
 Before use on real scanners, build a manually labeled test set stratified by scanner, anatomy, dose protocol, and metal implants. Report Dice, surface Dice, HD95, sensitivity, and false-positive volume.
 
-Multicenter testing on open SynthRAD2023 pelvic CBCT data showed a substantial scanner-domain shift for the pure-threshold method. The v4 model has likewise not been validated on independent patients, other scanners, knees, or whole-body anatomy. The current automatic algorithm is not clinically validated; future evaluation requires a patient-separated independent test set and the same volumetric and surface metrics.
+Multicenter testing on open SynthRAD2023 pelvic CBCT data showed a substantial scanner-domain shift for the pure-threshold method. The v5 model has likewise not been validated on independent patients, other scanners, knees, or whole-body anatomy. The current automatic algorithm is not clinically validated; future evaluation requires a patient-separated independent test set and the same volumetric and surface metrics.
 
 ## Model release
 
-- Release: `model-v4.0.0`
-- File: `cbct-bone-intraoperative-v4.onnx`
-- Size: `4,428,600` bytes
-- SHA-256: `f18ed7c9071b35c613ff748088bfadbd5bd7691793c1c8b80bf9013315c7abc6`
+- Release: `model-v5.0.0`
+- File: `cbct-bone-intraoperative-v5.onnx`
+- Size: `4,428,425` bytes
+- SHA-256: `e0e5711b856fd22fbb9e0dd31d49c3e73d7b4ea15988029e5acff626304f32f7`
 - Training grid: `0.8 mm` isotropic LPS
-- Segmentation threshold: `0.775`
+- Segmentation threshold: `0.8`
 
 The runtime accepts a model file only when both its registered size and SHA-256 match.
 

@@ -49,6 +49,22 @@ V4_MODEL = ModelSpec(
     spacing_mm=0.8,
 )
 
+V5_MODEL = ModelSpec(
+    name="cbct-bone-intraoperative-v5",
+    version="5.0.0",
+    filename="cbct-bone-intraoperative-v5.onnx",
+    url=(
+        "https://github.com/GGN-2015/cbct-bone/releases/download/"
+        "model-v5.0.0/cbct-bone-intraoperative-v5.onnx"
+    ),
+    sha256="e0e5711b856fd22fbb9e0dd31d49c3e73d7b4ea15988029e5acff626304f32f7",
+    size_bytes=4_428_425,
+    threshold=0.8,
+    spacing_mm=0.8,
+)
+
+LATEST_MODEL = V5_MODEL
+
 
 class ModelError(RuntimeError):
     """Base exception for model acquisition failures."""
@@ -132,7 +148,7 @@ class ModelManager:
 
     def __init__(
         self,
-        spec: ModelSpec = V4_MODEL,
+        spec: ModelSpec = LATEST_MODEL,
         *,
         cache_dir: str | Path | None = None,
         opener: OpenUrl | None = None,
@@ -242,7 +258,7 @@ class ModelManager:
         elif offset > self.spec.size_bytes:
             partial.unlink()
             offset = 0
-        headers = {"User-Agent": "cbct-bone/0.2.0"}
+        headers = {"User-Agent": "cbct-bone/0.3.0"}
         if offset:
             headers["Range"] = f"bytes={offset}-"
         request = urllib.request.Request(self.spec.url, headers=headers)
@@ -330,7 +346,9 @@ class ModelManager:
 
 
 __all__ = [
+    "LATEST_MODEL",
     "V4_MODEL",
+    "V5_MODEL",
     "DownloadProgress",
     "ModelError",
     "ModelIntegrityError",

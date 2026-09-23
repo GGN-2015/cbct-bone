@@ -20,10 +20,12 @@ from .api import (
     segment,
 )
 from .inference import (
+    NeuralCBCTBoneSegmenter,
     NeuralMaskPostprocessor,
     NeuralSegmentationConfig,
     NeuralSegmentationDiagnostics,
     V4CBCTBoneSegmenter,
+    V5CBCTBoneSegmenter,
 )
 from .io import (
     MedicalMaskWriter,
@@ -33,7 +35,9 @@ from .io import (
     save_mask,
 )
 from .models import (
+    LATEST_MODEL,
     V4_MODEL,
+    V5_MODEL,
     DownloadProgress,
     ModelError,
     ModelIntegrityError,
@@ -44,7 +48,9 @@ from .models import (
 )
 
 __all__ = [
+    "LATEST_MODEL",
     "V4_MODEL",
+    "V5_MODEL",
     "AdaptiveBoneSegmenter",
     "AnnotationWriter",
     "BoneSegmentationConfig",
@@ -60,6 +66,7 @@ __all__ = [
     "ModelManager",
     "ModelSpec",
     "ModelUnavailableError",
+    "NeuralCBCTBoneSegmenter",
     "NeuralMaskPostprocessor",
     "NeuralSegmentationConfig",
     "NeuralSegmentationDiagnostics",
@@ -67,6 +74,7 @@ __all__ = [
     "SegmentationDiagnostics",
     "SegmentationResult",
     "V4CBCTBoneSegmenter",
+    "V5CBCTBoneSegmenter",
     "annotation_path_for",
     "default_model_cache",
     "load_volume",
@@ -76,4 +84,4 @@ __all__ = [
     "source_fingerprint",
 ]
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

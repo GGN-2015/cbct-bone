@@ -1,13 +1,14 @@
-# cbct-bone intraoperative v4 model card
+# cbct-bone intraoperative v5 model card
 
 ## Model details
 
-- Model ID: `cbct-bone-intraoperative-v4`
-- Version: `4.0.0`
-- Architecture: compact 2.5D U-Net, three adjacent axial slices
-- Runtime format: ONNX, opset 18
+- Model ID: `cbct-bone-intraoperative-v5`
+- Version: `5.0.0`
+- Architecture: compact 2.5D U-Net with 1,096,609 parameters
+- Input context: three adjacent axial slices
+- Runtime format: ONNX, opset 17
 - Input: one canonical LPS CBCT volume resampled to 0.8 mm isotropic spacing
-- Output: per-slice bone probability, thresholded at 0.775
+- Output: per-slice bone probability, thresholded at 0.8
 - License: MIT
 
 The model is intended to accelerate polygon correction and produce research-use
@@ -16,11 +17,17 @@ data. It is not a medical device.
 
 ## Training data
 
-The model was trained from four locally annotated, anonymized CBCT studies:
+Five locally annotated CBCT studies from the target device were used. Polygon
+keyframes were converted to dense masks with the same signed-distance
+interpolation implemented by `med-image-seg`. This produced 1,206 axial slices:
 
-- 208 trusted manual slices in total;
-- 165 training slices;
-- 43 spatially held-out validation slices.
+- case contributions: 227, 246, 245, 242, and 246 slices;
+- model selection: 965 training slices and 241 contiguous validation slices;
+- final fit: all 1,206 keyframe and interpolation-derived slices for 58 epochs.
+
+The validation block location was varied across the five studies so that the
+aggregate selection set covered different superior-inferior regions. The final
+release fit used every labeled and interpolated slice, as requested.
 
 No source DICOM files, identity fields, paths, or polygon projects are included
 in the released model asset. The weights are nevertheless derived from medical
@@ -28,19 +35,30 @@ data and should be distributed only under the data owner's authorization.
 
 ## Internal validation
 
-- Dice: 0.8678
-- Precision: 0.8493
-- Recall: 0.8872
+The model-selection checkpoint achieved:
 
-These metrics use held-out slices from the same four studies. Adjacent slices
-are correlated, so this is a development metric rather than an independent
-patient-level evaluation.
+- Dice: 0.8733
+- Precision: 0.8735
+- Recall: 0.8731
+- Selected threshold: 0.8
+- Best epoch: 58
+
+A full-volume sanity check of the final ONNX model on the fifth training project
+achieved Dice 0.9280, precision 0.8967, and recall 0.9616. This is a training-case
+consistency check, not an independent performance estimate.
+
+All validation slices come from patients represented in training, and most dense
+labels are interpolation-derived. The metrics therefore measure development
+consistency and cannot establish patient-level, cross-scanner, or clinical
+generalization.
 
 ## Limitations
 
 - Only one target CBCT device/domain is represented.
-- Four studies are insufficient to claim whole-body, cross-device, or robust
+- Five studies are insufficient to claim whole-body, cross-device, or robust
   anatomy coverage.
+- Interpolated masks inherit errors from their neighboring polygon keyframes and
+  are not equivalent to independently traced slice labels.
 - Independent knee, pelvis, metal implant, low-dose, fracture, and outlier
   cohorts have not been evaluated.
 - The model can omit low-contrast cancellous bone or include metal and dense
@@ -50,11 +68,13 @@ patient-level evaluation.
 
 ## Release integrity
 
-- Asset: `cbct-bone-intraoperative-v4.onnx`
-- Size: 4,428,600 bytes
-- SHA-256: `f18ed7c9071b35c613ff748088bfadbd5bd7691793c1c8b80bf9013315c7abc6`
-- PyTorch-to-ONNX parity: maximum absolute error 1.58e-5 on a deterministic
-  two-sample input batch.
+- Release: `model-v5.0.0`
+- Asset: `cbct-bone-intraoperative-v5.onnx`
+- Size: 4,428,425 bytes
+- SHA-256: `e0e5711b856fd22fbb9e0dd31d49c3e73d7b4ea15988029e5acff626304f32f7`
+- PyTorch-to-ONNX probability parity: maximum absolute error 1.49e-5 on a
+  deterministic input.
 
 `ModelManager` verifies both size and SHA-256 before the asset enters the valid
-cache.
+cache. The previous v4 asset remains available through the explicit `v4`
+backend for reproducibility.

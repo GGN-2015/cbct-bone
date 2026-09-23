@@ -7,7 +7,7 @@ import numpy as np
 
 from cbct_bone.algorithm import SegmentationDiagnostics
 from cbct_bone.api import CBCTBoneExtractor
-from cbct_bone.inference import V4CBCTBoneSegmenter
+from cbct_bone.inference import V5CBCTBoneSegmenter
 from cbct_bone.io import MedicalVolume
 
 
@@ -62,8 +62,8 @@ def test_segment_high_level_api(tmp_path: Path) -> None:
     )
 
 
-def test_extractor_defaults_to_v4_without_eager_download() -> None:
+def test_extractor_defaults_to_v5_without_eager_download() -> None:
     extractor = CBCTBoneExtractor()
 
-    assert isinstance(extractor.segmenter, V4CBCTBoneSegmenter)
+    assert isinstance(extractor.segmenter, V5CBCTBoneSegmenter)
     assert extractor.segmenter._model_path is None

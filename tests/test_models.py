@@ -10,6 +10,7 @@ import pytest
 
 from cbct_bone import models as model_module
 from cbct_bone.models import (
+    V5_MODEL,
     ModelIntegrityError,
     ModelManager,
     ModelSpec,
@@ -56,6 +57,10 @@ def _spec(data: bytes) -> ModelSpec:
         threshold=0.5,
         spacing_mm=0.8,
     )
+
+
+def test_model_manager_defaults_to_latest_v5_model() -> None:
+    assert ModelManager().spec is V5_MODEL
 
 
 def test_model_manager_resumes_partial_download(tmp_path: Path) -> None:

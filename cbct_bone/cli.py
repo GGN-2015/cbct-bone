@@ -13,7 +13,7 @@ from .algorithm import BoneSegmentationConfig
 from .annotations import annotation_path_for
 from .api import segment
 from .inference import NeuralSegmentationConfig, NeuralSegmentationDiagnostics
-from .models import DownloadProgress
+from .models import V4_MODEL, V5_MODEL, DownloadProgress
 
 _AUTO_ANNOTATION_PATH = Path("__AUTO_MED_IMAGE_SEG_SIDECAR__")
 
@@ -42,27 +42,27 @@ def _parser() -> argparse.ArgumentParser:
         type=float,
         default=0.8,
         metavar="MM",
-        help="isotropic processing spacing in mm; v4 requires 0.8 (default: 0.8)",
+        help="isotropic processing spacing in mm; neural models require 0.8",
     )
     parser.add_argument(
         "--backend",
-        choices=("v4", "adaptive"),
-        default="v4",
-        help="segmentation backend (default: v4)",
+        choices=("v5", "v4", "adaptive"),
+        default="v5",
+        help="segmentation backend (default: v5)",
     )
-    parser.add_argument("--model", type=Path, help="use a local v4 ONNX model")
+    parser.add_argument("--model", type=Path, help="use a local neural ONNX model")
     parser.add_argument("--cache-dir", type=Path, help="model cache directory")
     parser.add_argument(
         "--offline",
         action="store_true",
-        help="do not download a missing v4 model",
+        help="do not download a missing neural model",
     )
     parser.add_argument(
         "--batch-size",
         type=int,
         default=8,
         metavar="N",
-        help="v4 inference batch size (default: 8)",
+        help="neural inference batch size (default: 8)",
     )
     parser.add_argument(
         "--provider",
@@ -94,7 +94,7 @@ def _download_progress(progress: DownloadProgress) -> None:
     percent = min(100.0, 100.0 * progress.downloaded_bytes / total)
     end = "\n" if progress.downloaded_bytes >= progress.total_bytes else ""
     print(
-        f"\rDownloading v4 model: {percent:5.1f}%",
+        f"\rDownloading model: {percent:5.1f}%",
         end=end,
         file=sys.stderr,
         flush=True,
@@ -123,11 +123,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.backend == "adaptive"
         else None
     )
-    neural_config = (
-        NeuralSegmentationConfig(batch_size=args.batch_size)
-        if args.backend == "v4"
-        else None
-    )
+    neural_model = V5_MODEL if args.backend == "v5" else V4_MODEL
+    neural_config = None
+    if args.backend in ("v5", "v4"):
+        neural_config = NeuralSegmentationConfig(
+            batch_size=args.batch_size,
+            threshold=neural_model.threshold,
+            expected_spacing_mm=neural_model.spacing_mm,
+        )
     try:
         result = segment(
             args.input,

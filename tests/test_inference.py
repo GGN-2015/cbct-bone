@@ -8,6 +8,7 @@ import pytest
 from cbct_bone.inference import (
     NeuralSegmentationConfig,
     V4CBCTBoneSegmenter,
+    V5CBCTBoneSegmenter,
 )
 
 
@@ -70,3 +71,21 @@ def test_v4_segmenter_rejects_wrong_spacing() -> None:
 def test_v4_config_validates_batch_size() -> None:
     with pytest.raises(ValueError, match="batch_size"):
         NeuralSegmentationConfig(batch_size=0)
+
+
+def test_v5_segmenter_reports_v5_provenance() -> None:
+    config = NeuralSegmentationConfig(
+        batch_size=2,
+        threshold=0.5,
+        minimum_component_pixels=4,
+        maximum_hole_pixels=0,
+        closing_radius_pixels=0,
+    )
+    segmenter = V5CBCTBoneSegmenter(config, session=FakeSession())
+    volume = np.zeros((8, 8, 1), dtype=np.float32)
+    volume[2:6, 2:6, :] = 1.0
+
+    _, diagnostics = segmenter.segment(volume, 0.8)
+
+    assert diagnostics.model_name == "cbct-bone-intraoperative-v5"
+    assert diagnostics.model_version == "5.0.0"
