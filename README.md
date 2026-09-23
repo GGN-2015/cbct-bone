@@ -8,6 +8,7 @@
 
 - Python 固定为 3.12，使用 [uv](https://docs.astral.sh/uv/) 管理和锁定环境。
 - DICOM、NIfTI 和 `.ubd.npz` 的读取全部委托给 `ct_mri_dicom_nii_reader==0.1.6`。
+- 依赖 PyPI 上的 `med-image-seg==0.1.0`，机器分割 JSON 可直接进入同一套 GUI 和 Python 标注工作流。
 - 默认使用 v4 ONNX 模型；首次调用自动从 GitHub Release 下载约 4.2 MiB 权重。
 - 下载支持 `.part` 断点续传、重试、并发锁、SHA-256 校验和原子落盘。
 - CPU 推理依赖 ONNX Runtime，不要求安装 PyTorch；可通过 provider 参数使用其他 ONNX Runtime 执行后端。
@@ -129,8 +130,8 @@ uv run cbct-bone --help
 ## 标注工具
 
 多边形标注、自动插值、实时 JSON 保存与 GUI 已迁移到独立的
-`med-image-seg` 项目。`cbct-bone` 现在只包含开箱即用的骨骼分割运行时，
-不会安装 PySide6、PyTorch 或原型训练依赖。
+`med-image-seg` 项目，并作为 `cbct-bone` 的正式运行时依赖安装。
+`cbct-bone` 本身仍不包含 PyTorch 或原型训练依赖。
 
 ## Python API
 
