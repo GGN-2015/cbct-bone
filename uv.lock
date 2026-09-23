@@ -44,7 +44,7 @@ validation = [
 [package.metadata]
 requires-dist = [
     { name = "ct-mri-dicom-nii-reader" },
-    { name = "med-image-seg", specifier = "==0.1.0" },
+    { name = "med-image-seg", specifier = "==0.1.1" },
     { name = "numpy", specifier = ">=1.26,<3" },
     { name = "onnxruntime", specifier = ">=1.30,<2" },
     { name = "scikit-image", specifier = ">=0.24,<1" },
@@ -696,7 +696,7 @@ wheels = [
 
 [[package]]
 name = "med-image-seg"
-version = "0.1.0"
+version = "0.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ct-mri-dicom-nii-reader" },
@@ -706,9 +706,9 @@ dependencies = [
     { name = "scipy" },
     { name = "simpleitk" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e0/bd/311953cd0cd9b304ebce0c303b03523051f2e29370f3b4b342a53968abb6/med_image_seg-0.1.0.tar.gz", hash = "sha256:36ea67c83dd252ff8b9e8c6708ac8d60c6b8923b36ccebc4ae7c3666bad5d025", size = 41963, upload-time = "2026-09-23T02:14:53.201Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/37/bf/185e3978c60637a66b1459ce62872cf9afbd0a88ede7797ff1fa765da6f1/med_image_seg-0.1.1.tar.gz", hash = "sha256:df6537f08d4766d834c9aeb23851daf1d9c32340493feb0dd0bc32b269d2a2a0", size = 71629, upload-time = "2026-09-23T12:07:20.66Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/84/23/bec844958c6bbcd39c83f1407fed435f7a811d28f8fe905b93ae107e60af/med_image_seg-0.1.0-py3-none-any.whl", hash = "sha256:e832e71fa2c3f039272114696299f0d5222365967853b0f5b015ca82d6dcd659", size = 23623, upload-time = "2026-09-23T02:14:56.425Z" },
+    { url = "https://files.pythonhosted.org/packages/9d/b6/93592c451f94c5eab5a04e5baa2606bbc36e00b98b80f9a1184ef88a5376/med_image_seg-0.1.1-py3-none-any.whl", hash = "sha256:852a495246350fcf02a5cde0b52117c9cf709c75daae630453462bd4e1e0b469", size = 27517, upload-time = "2026-09-23T12:07:21.949Z" },
 ]
 
 [[package]]

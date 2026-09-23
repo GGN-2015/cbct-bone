@@ -8,7 +8,7 @@
 
 - Python 3.12 or later is supported, with [uv](https://docs.astral.sh/uv/) managing the development environment.
 - DICOM, NIfTI, and `.ubd.npz` reading is delegated exclusively to `ct_mri_dicom_nii_reader`.
-- The package depends on `med-image-seg==0.1.0` from PyPI, so machine-generated annotation JSON can enter the same bilingual GUI and Python annotation workflow. The GUI defaults to English and can switch to Chinese at runtime.
+- The package depends on `med-image-seg==0.1.1` from PyPI, so machine-generated annotation JSON can enter the same bilingual GUI and Python annotation workflow. The GUI defaults to English and can switch to Chinese at runtime.
 - The default v4 ONNX model is downloaded automatically from GitHub Releases on first use; the file is approximately 4.2 MiB.
 - Model downloads support `.part` resume, retries, an interprocess lock, SHA-256 verification, and atomic installation.
 - CPU inference uses ONNX Runtime and does not require PyTorch. Other ONNX Runtime execution backends can be selected with the provider option.
